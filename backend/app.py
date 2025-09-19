@@ -16,19 +16,38 @@ rec_engine = RecommendationEngine()
 
 @app.route('/', methods=['GET'])
 def home():
-    """Serve frontend or API status based on Accept header"""
-    # If request accepts HTML, serve frontend
-    if 'text/html' in request.headers.get('Accept', ''):
+    """Serve frontend for browsers, API status for API tools"""
+    accept_header = request.headers.get('Accept', '')
+    user_agent = request.headers.get('User-Agent', '')
+    
+    # Detect if this is a browser request
+    is_browser = (
+        'text/html' in accept_header or 
+        'Mozilla' in user_agent or 
+        'Chrome' in user_agent or 
+        'Safari' in user_agent or 
+        'Edge' in user_agent or 
+        'Firefox' in user_agent or
+        not accept_header or  # Default to HTML if no Accept header
+        accept_header == '*/*'
+    )
+    
+    # Serve frontend HTML for browsers
+    if is_browser:
         try:
             return send_file(os.path.join(FRONTEND_DIR, 'index.html'))
         except Exception as e:
             return jsonify({
                 'error': 'Frontend not found',
                 'message': str(e),
-                'api_status': 'active'
+                'api_status': 'active',
+                'debug': {
+                    'frontend_dir': FRONTEND_DIR,
+                    'file_exists': os.path.exists(os.path.join(FRONTEND_DIR, 'index.html'))
+                }
             }), 200
     
-    # Otherwise, return API status (for API testing)
+    # Return API status for API tools
     return jsonify({
         "message": "PM Internship Recommender API",
         "version": "1.0.0",
