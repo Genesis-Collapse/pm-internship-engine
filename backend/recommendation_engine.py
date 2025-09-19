@@ -237,7 +237,7 @@ class RecommendationEngine:
         if location:
             results = [i for i in results if 
                       location.lower() in i.get('location', '').lower() or 
-                      (is_remote and i.get('is_remote', False))]
+                      (location.lower() == 'remote' and i.get('is_remote', False))]
         
         if is_remote is not None:
             results = [i for i in results if i.get('is_remote', False) == is_remote]
