@@ -65,6 +65,48 @@ def get_sectors():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/internships/search', methods=['GET'])
+def search_internships():
+    try:
+        # Get query parameters
+        sector = request.args.get('sector')
+        location = request.args.get('location')
+        is_remote = request.args.get('remote', '').lower() == 'true'
+        
+        # Search internships
+        results = rec_engine.search_internships(
+            sector=sector,
+            location=location,
+            is_remote=is_remote
+        )
+        
+        return jsonify({
+            'success': True,
+            'internships': results,
+            'total': len(results),
+            'filters': {
+                'sector': sector,
+                'location': location,
+                'remote': is_remote
+            }
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/internships/<internship_id>', methods=['GET'])
+def get_internship_details(internship_id):
+    try:
+        internship = rec_engine.get_internship_by_id(internship_id)
+        if not internship:
+            return jsonify({'error': 'Internship not found'}), 404
+        
+        return jsonify({
+            'success': True,
+            'internship': internship
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(debug=False, host='0.0.0.0', port=port)

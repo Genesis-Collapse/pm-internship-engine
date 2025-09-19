@@ -226,3 +226,20 @@ class RecommendationEngine:
             if internship.get('id') == internship_id:
                 return internship
         return {}
+    
+    def search_internships(self, sector: str = None, location: str = None, is_remote: bool = None) -> List[Dict]:
+        """Search internships based on filters"""
+        results = self.internships.copy()
+        
+        if sector:
+            results = [i for i in results if i.get('sector', '').lower() == sector.lower()]
+        
+        if location:
+            results = [i for i in results if 
+                      location.lower() in i.get('location', '').lower() or 
+                      (is_remote and i.get('is_remote', False))]
+        
+        if is_remote is not None:
+            results = [i for i in results if i.get('is_remote', False) == is_remote]
+        
+        return results
