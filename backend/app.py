@@ -16,44 +16,71 @@ rec_engine = RecommendationEngine()
 
 @app.route('/', methods=['GET'])
 def home():
-    """Serve frontend for browsers, API status for API tools"""
+    """Always serve frontend for browsers, only return JSON for specific API requests"""
     accept_header = request.headers.get('Accept', '')
-    user_agent = request.headers.get('User-Agent', '')
     
-    # Detect if this is a browser request
-    is_browser = (
-        'text/html' in accept_header or 
-        'Mozilla' in user_agent or 
-        'Chrome' in user_agent or 
-        'Safari' in user_agent or 
-        'Edge' in user_agent or 
-        'Firefox' in user_agent or
-        not accept_header or  # Default to HTML if no Accept header
-        accept_header == '*/*'
-    )
+    # Only return JSON for explicit API requests
+    if ('application/json' in accept_header and 'text/html' not in accept_header):
+        return jsonify({
+            "message": "PM Internship Recommender API",
+            "version": "1.0.0",
+            "status": "active",
+            "frontend_available": os.path.exists(os.path.join(FRONTEND_DIR, 'index.html'))
+        })
     
-    # Serve frontend HTML for browsers
-    if is_browser:
-        try:
-            return send_file(os.path.join(FRONTEND_DIR, 'index.html'))
-        except Exception as e:
-            return jsonify({
-                'error': 'Frontend not found',
-                'message': str(e),
-                'api_status': 'active',
-                'debug': {
-                    'frontend_dir': FRONTEND_DIR,
-                    'file_exists': os.path.exists(os.path.join(FRONTEND_DIR, 'index.html'))
-                }
-            }), 200
-    
-    # Return API status for API tools
-    return jsonify({
-        "message": "PM Internship Recommender API",
-        "version": "1.0.0",
-        "status": "active",
-        "frontend_available": os.path.exists(os.path.join(FRONTEND_DIR, 'index.html'))
-    })
+    # For everything else (browsers, direct links, etc.), serve frontend
+    try:
+        # Try multiple paths for index.html
+        html_paths = [
+            os.path.join(FRONTEND_DIR, 'index.html'),
+            './frontend/index.html',
+            'frontend/index.html'
+        ]
+        
+        for html_path in html_paths:
+            if os.path.exists(html_path):
+                return send_file(html_path)
+        
+        # If none found, show diagnostic page
+            # If file not found, create a simple redirect page
+            return '''
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>PM Internship Finder</title>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            </head>
+            <body>
+                <h1>🎯 PM Internship Finder</h1>
+                <p>Loading application...</p>
+                <script>
+                    console.log('Frontend path issue - redirecting...');
+                    // Try to load the main app
+                    fetch('/api/sectors')
+                        .then(response => response.json())
+                        .then(data => {
+                            console.log('API working:', data);
+                            document.body.innerHTML = '<h1>✅ API Working</h1><p>Frontend files not found. Check deployment.</p>';
+                        })
+                        .catch(error => {
+                            console.error('API Error:', error);
+                        });
+                </script>
+            </body>
+            </html>
+            ''', 200, {'Content-Type': 'text/html'}
+    except Exception as e:
+        return jsonify({
+            'error': 'Could not serve frontend',
+            'message': str(e),
+            'debug': {
+                'frontend_dir': FRONTEND_DIR,
+                'file_exists': os.path.exists(os.path.join(FRONTEND_DIR, 'index.html')),
+                'current_dir': os.getcwd(),
+                'files_in_frontend': os.listdir(FRONTEND_DIR) if os.path.exists(FRONTEND_DIR) else 'Directory not found'
+            }
+        }), 200
 
 @app.route('/api/recommend', methods=['POST'])
 def get_recommendations():
@@ -144,6 +171,30 @@ def get_internship_details(internship_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# Debug route to check file structure
+@app.route('/debug')
+def debug_files():
+    """Debug route to check file system structure"""
+    debug_info = {
+        'current_dir': os.getcwd(),
+        'project_root': PROJECT_ROOT,
+        'frontend_dir': FRONTEND_DIR,
+        'frontend_exists': os.path.exists(FRONTEND_DIR)
+    }
+    
+    if os.path.exists(FRONTEND_DIR):
+        debug_info['frontend_files'] = os.listdir(FRONTEND_DIR)
+        debug_info['index_html_exists'] = os.path.exists(os.path.join(FRONTEND_DIR, 'index.html'))
+    
+    # Also check current directory
+    debug_info['current_dir_files'] = os.listdir('.')
+    
+    # Check if frontend is in current directory
+    if os.path.exists('./frontend'):
+        debug_info['local_frontend_files'] = os.listdir('./frontend')
+    
+    return jsonify(debug_info)
+
 # Static file serving for frontend assets
 @app.route('/<path:filename>')
 def serve_static_files(filename):
@@ -153,10 +204,20 @@ def serve_static_files(filename):
         return jsonify({'error': 'API endpoint not found'}), 404
     
     try:
-        return send_from_directory(FRONTEND_DIR, filename)
+        # Try FRONTEND_DIR first, then current directory
+        if os.path.exists(os.path.join(FRONTEND_DIR, filename)):
+            return send_from_directory(FRONTEND_DIR, filename)
+        elif os.path.exists(os.path.join('./frontend', filename)):
+            return send_from_directory('./frontend', filename)
+        else:
+            raise FileNotFoundError(f'File {filename} not found in any location')
     except Exception as e:
         # If file not found, return 404
-        return jsonify({'error': f'File {filename} not found'}), 404
+        return jsonify({
+            'error': f'File {filename} not found',
+            'searched_paths': [FRONTEND_DIR, './frontend'],
+            'message': str(e)
+        }), 404
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
