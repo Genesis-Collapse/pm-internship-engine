@@ -16,17 +16,12 @@ rec_engine = RecommendationEngine()
 
 @app.route('/', methods=['GET'])
 def home():
-    """ALWAYS serve HTML - ignore all headers unless explicitly requesting API status"""
-    # Check for explicit API status request with specific parameter
-    if request.args.get('api') == 'true':
-        return jsonify({
-            "message": "PM Internship Recommender API",
-            "version": "1.0.0", 
-            "status": "active",
-            "frontend_available": os.path.exists(os.path.join(FRONTEND_DIR, 'index.html'))
-        })
-    
-    # Always serve the embedded HTML application
+    """Serve HTML application"""
+    return get_html_app()
+
+# Function to generate HTML app
+def get_html_app():
+    """Return the complete HTML application"""
     return '''
 <!DOCTYPE html>
 <html lang="en">
@@ -254,7 +249,18 @@ def get_internship_details(internship_id):
 @app.route('/app')
 def serve_app():
     """Explicit HTML route that always works"""
-    return home()
+    return get_html_app()
+
+# API status route
+@app.route('/api-status')
+def api_status():
+    """Explicit API status endpoint"""
+    return jsonify({
+        "message": "PM Internship Recommender API",
+        "version": "1.0.0",
+        "status": "active",
+        "frontend_available": True
+    })
 
 # Debug route to check file structure
 @app.route('/debug')
