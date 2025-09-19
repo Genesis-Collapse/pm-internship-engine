@@ -16,33 +16,18 @@ rec_engine = RecommendationEngine()
 
 @app.route('/', methods=['GET'])
 def home():
-    """Always serve frontend for browsers, only return JSON for specific API requests"""
-    accept_header = request.headers.get('Accept', '')
-    
-    # Only return JSON for explicit API requests
-    if ('application/json' in accept_header and 'text/html' not in accept_header):
+    """ALWAYS serve HTML - ignore all headers unless explicitly requesting API status"""
+    # Check for explicit API status request with specific parameter
+    if request.args.get('api') == 'true':
         return jsonify({
             "message": "PM Internship Recommender API",
-            "version": "1.0.0",
+            "version": "1.0.0", 
             "status": "active",
             "frontend_available": os.path.exists(os.path.join(FRONTEND_DIR, 'index.html'))
         })
     
-    # For everything else (browsers, direct links, etc.), serve frontend
-    try:
-        # Try multiple paths for index.html
-        html_paths = [
-            os.path.join(FRONTEND_DIR, 'index.html'),
-            './frontend/index.html',
-            'frontend/index.html'
-        ]
-        
-        for html_path in html_paths:
-            if os.path.exists(html_path):
-                return send_file(html_path)
-        
-        # If none found, serve a basic working version
-        return '''
+    # Always serve the embedded HTML application
+    return '''
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -175,17 +160,6 @@ def home():
 </body>
 </html>
         ''', 200, {'Content-Type': 'text/html; charset=utf-8'}
-    except Exception as e:
-        return jsonify({
-            'error': 'Could not serve frontend',
-            'message': str(e),
-            'debug': {
-                'frontend_dir': FRONTEND_DIR,
-                'file_exists': os.path.exists(os.path.join(FRONTEND_DIR, 'index.html')),
-                'current_dir': os.getcwd(),
-                'files_in_frontend': os.listdir(FRONTEND_DIR) if os.path.exists(FRONTEND_DIR) else 'Directory not found'
-            }
-        }), 200
 
 @app.route('/api/recommend', methods=['POST'])
 def get_recommendations():
@@ -275,6 +249,12 @@ def get_internship_details(internship_id):
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# Explicit HTML route for testing
+@app.route('/app')
+def serve_app():
+    """Explicit HTML route that always works"""
+    return home()
 
 # Debug route to check file structure
 @app.route('/debug')
