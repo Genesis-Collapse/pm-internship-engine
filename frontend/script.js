@@ -1,5 +1,7 @@
-// API Configuration
-const API_BASE_URL = 'https://pm-internship-engine.onrender.com/api';
+// API Configuration - Use localhost for development, deployed URL for production
+const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+    ? 'http://localhost:5000/api'
+    : 'https://pm-internship-engine.onrender.com/api';
 
 // DOM Elements
 const candidateForm = document.getElementById('candidateForm');
@@ -12,6 +14,7 @@ const recommendationsList = document.getElementById('recommendationsList');
 document.addEventListener('DOMContentLoaded', function() {
     setupFormSubmission();
     setupAccessibility();
+    registerServiceWorker();
 });
 
 function setupFormSubmission() {
@@ -103,6 +106,14 @@ async function getRecommendations(candidateData) {
         });
         
         if (!response.ok) {
+            if (response.status === 503) {
+                // Offline response from service worker
+                const errorData = await response.json();
+                if (errorData.offline) {
+                    showOfflineNotification();
+                    return getMockRecommendations(candidateData);
+                }
+            }
             throw new Error('Failed to get recommendations. Please try again.');
         }
         
@@ -115,6 +126,12 @@ async function getRecommendations(candidateData) {
         return data.recommendations;
         
     } catch (error) {
+        // Check if we're offline
+        if (!navigator.onLine) {
+            showOfflineNotification();
+            return getMockRecommendations(candidateData);
+        }
+        
         // If API is not available, show mock recommendations
         console.warn('API not available, showing mock data:', error.message);
         return getMockRecommendations(candidateData);
@@ -318,6 +335,47 @@ function showAlert(message) {
     });
 }
 
+function showOfflineNotification() {
+    // Show a non-intrusive offline notification
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        background: #f59e0b;
+        color: white;
+        padding: 12px 16px;
+        border-radius: 8px;
+        font-size: 14px;
+        z-index: 999;
+        display: flex;
+        align-items: center;
+        max-width: 300px;
+    `;
+    
+    notification.innerHTML = `
+        <span style="margin-right: 8px;">📶</span>
+        <span>You're offline. Showing sample recommendations.</span>
+        <button onclick="this.parentElement.remove()" style="
+            background: transparent;
+            border: none;
+            color: white;
+            margin-left: 8px;
+            cursor: pointer;
+            font-size: 16px;
+        ">×</button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentElement) {
+            notification.remove();
+        }
+    }, 5000);
+}
+
 function setupAccessibility() {
     // Add keyboard navigation support
     const checkboxes = document.querySelectorAll('input[type="checkbox"]');
@@ -342,6 +400,111 @@ function setupAccessibility() {
             this.style.outline = 'none';
         });
     });
+    
+    // Add touch-friendly interactions for mobile
+    const skillItems = document.querySelectorAll('.skill-item, .interest-item');
+    skillItems.forEach(item => {
+        // Add touch feedback
+        item.addEventListener('touchstart', function(e) {
+            this.style.transform = 'scale(0.98)';
+        });
+        
+        item.addEventListener('touchend', function(e) {
+            this.style.transform = 'scale(1)';
+            // Small delay to show visual feedback
+            setTimeout(() => {
+                const checkbox = this.querySelector('input[type="checkbox"]');
+                if (checkbox && e.target !== checkbox) {
+                    checkbox.click();
+                }
+            }, 100);
+        });
+        
+        item.addEventListener('touchcancel', function() {
+            this.style.transform = 'scale(1)';
+        });
+    });
+    
+    // Prevent double-tap zoom on buttons
+    const buttons = document.querySelectorAll('button');
+    buttons.forEach(button => {
+        button.addEventListener('touchend', function(e) {
+            e.preventDefault();
+        });
+    });
+}
+
+// Register Service Worker for PWA functionality
+function registerServiceWorker() {
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js')
+            .then((registration) => {
+                console.log('SW registered successfully:', registration);
+                
+                // Check for updates
+                registration.addEventListener('updatefound', () => {
+                    const newWorker = registration.installing;
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            // New content available
+                            showUpdateAvailableNotification();
+                        }
+                    });
+                });
+            })
+            .catch((error) => {
+                console.log('SW registration failed:', error);
+            });
+    }
+}
+
+function showUpdateAvailableNotification() {
+    // Show a subtle notification that an update is available
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        bottom: 16px;
+        left: 16px;
+        right: 16px;
+        background: #4f46e5;
+        color: white;
+        padding: 16px;
+        border-radius: 8px;
+        text-align: center;
+        z-index: 1000;
+        font-size: 14px;
+    `;
+    notification.innerHTML = `
+        New version available! 
+        <button onclick="window.location.reload()" style="
+            background: white;
+            color: #4f46e5;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin-left: 8px;
+            cursor: pointer;
+            font-size: 12px;
+        ">Update Now</button>
+        <button onclick="this.parentElement.remove()" style="
+            background: transparent;
+            color: white;
+            border: 1px solid white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin-left: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        ">Later</button>
+    `;
+    document.body.appendChild(notification);
+    
+    // Auto-remove after 10 seconds
+    setTimeout(() => {
+        if (notification.parentElement) {
+            notification.remove();
+        }
+    }, 10000);
 }
 
 // Make functions globally available
