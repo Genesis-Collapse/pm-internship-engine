@@ -1,7 +1,7 @@
-// API Configuration - Use localhost for development, deployed URL for production
+// API Configuration - Use relative URLs for unified deployment
 const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-    ? 'http://localhost:5000/api'
-    : 'https://pm-internship-engine.onrender.com/api';
+    ? 'http://localhost:5000/api'  // Local development
+    : '/api';  // Production: same domain as frontend
 
 // DOM Elements
 const candidateForm = document.getElementById('candidateForm');
@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupFormSubmission();
     setupAccessibility();
     registerServiceWorker();
+    loadSavedPreferences();
 });
 
 function setupFormSubmission() {
@@ -62,12 +63,17 @@ function collectFormData() {
         selectedInterests.push(checkbox.value);
     });
     
-    return {
+    const userData = {
         education: formData.get('education'),
         skills: selectedSkills,
         interests: selectedInterests,
         location: formData.get('location')
     };
+    
+    // Save preferences to localStorage
+    saveUserPreferences(userData);
+    
+    return userData;
 }
 
 function validateFormData(data) {
@@ -203,6 +209,13 @@ function displayRecommendations(recommendations) {
         return;
     }
     
+    // Save recommendations for sharing
+    try {
+        localStorage.setItem('lastRecommendations', JSON.stringify(recommendations));
+    } catch (error) {
+        console.warn('Could not save recommendations:', error);
+    }
+    
     // Generate HTML for recommendations
     const recommendationsHTML = recommendations.map(internship => 
         createRecommendationCard(internship)
@@ -213,13 +226,46 @@ function displayRecommendations(recommendations) {
 }
 
 function createRecommendationCard(internship) {
+    const isRemote = internship.is_remote;
+    const hasDeadline = internship.application_deadline;
+    const matchScore = internship.match_score || 0;
+    const skillsOffered = internship.skills_offered || [];
+    const benefits = internship.benefits || [];
+    
+    // Calculate urgency based on deadline
+    let urgencyClass = '';
+    let urgencyText = '';
+    if (hasDeadline) {
+        const deadline = new Date(hasDeadline);
+        const now = new Date();
+        const daysLeft = Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
+        
+        if (daysLeft <= 7) {
+            urgencyClass = 'urgent';
+            urgencyText = `⚡ Only ${daysLeft} days left!`;
+        } else if (daysLeft <= 30) {
+            urgencyClass = 'moderate';
+            urgencyText = `⏳ ${daysLeft} days remaining`;
+        }
+    }
+    
     return `
-        <div class="recommendation-card">
-            <h3>${internship.title}</h3>
-            <div class="company">${internship.company}</div>
+        <div class="recommendation-card fade-in" style="animation-delay: ${Math.random() * 0.3}s">
+            <div class="card-header">
+                <div class="title-section">
+                    <h3>${internship.title}</h3>
+                    <div class="company">${internship.company}</div>
+                </div>
+                <div class="match-score">
+                    <div class="score-circle">${matchScore}%</div>
+                    <div class="score-label">Match</div>
+                </div>
+            </div>
+            
+            ${urgencyText ? `<div class="urgency ${urgencyClass}">${urgencyText}</div>` : ''}
             
             <div class="details">
-                <div class="detail-item">📍 ${internship.location}</div>
+                <div class="detail-item">📍 ${internship.location}${isRemote ? ' (Remote)' : ''}</div>
                 <div class="detail-item">⏰ ${internship.duration}</div>
                 <div class="detail-item">💰 ${internship.stipend}</div>
                 <div class="detail-item">🏢 ${internship.sector}</div>
@@ -230,13 +276,41 @@ function createRecommendationCard(internship) {
                 <div class="reason-text">${internship.match_reason}</div>
             </div>
             
-            <p style="margin-bottom: 16px; color: #6b7280; font-size: 14px;">
+            <p class="description">
                 ${internship.description}
             </p>
             
-            <button class="apply-btn" onclick="applyToInternship(${internship.id})">
-                🚀 Apply Now
-            </button>
+            ${skillsOffered.length > 0 ? `
+                <div class="skills-section">
+                    <div class="skills-title">🎯 Skills you'll learn:</div>
+                    <div class="skills-tags">
+                        ${skillsOffered.slice(0, 3).map(skill => 
+                            `<span class="skill-tag">${skill}</span>`
+                        ).join('')}
+                        ${skillsOffered.length > 3 ? `<span class="skill-tag">+${skillsOffered.length - 3} more</span>` : ''}
+                    </div>
+                </div>
+            ` : ''}
+            
+            ${benefits.length > 0 ? `
+                <div class="benefits-section">
+                    <div class="benefits-title">🎁 Benefits:</div>
+                    <div class="benefits-list">
+                        ${benefits.slice(0, 3).map(benefit => 
+                            `<span class="benefit-tag">• ${benefit}</span>`
+                        ).join('')}
+                    </div>
+                </div>
+            ` : ''}
+            
+            <div class="card-actions">
+                <button class="apply-btn" onclick="applyToInternship('${internship.id}')">
+                    🚀 Apply Now
+                </button>
+                <button class="share-btn" onclick="shareInternship('${internship.id}')">
+                    📤 Share
+                </button>
+            </div>
         </div>
     `;
 }
@@ -250,6 +324,35 @@ function showLoading() {
     profileForm.style.display = 'none';
     resultsContainer.style.display = 'none';
     loadingContainer.style.display = 'block';
+    
+    // Show skeleton loading in results container as well
+    showSkeletonLoading();
+}
+
+function showSkeletonLoading() {
+    const skeletonHTML = Array(3).fill().map(() => `
+        <div class="skeleton-card">
+            <div class="skeleton skeleton-title"></div>
+            <div class="skeleton skeleton-company"></div>
+            <div class="skeleton-details">
+                <div class="skeleton skeleton-detail"></div>
+                <div class="skeleton skeleton-detail"></div>
+                <div class="skeleton skeleton-detail"></div>
+                <div class="skeleton skeleton-detail"></div>
+            </div>
+            <div class="skeleton skeleton-description"></div>
+            <div class="skeleton skeleton-description"></div>
+            <div class="skeleton skeleton-description"></div>
+        </div>
+    `).join('');
+    
+    recommendationsList.innerHTML = skeletonHTML;
+    resultsContainer.style.display = 'block';
+    
+    // Hide skeleton and show loading spinner after 1 second
+    setTimeout(() => {
+        resultsContainer.style.display = 'none';
+    }, 1000);
 }
 
 function hideLoading() {
@@ -507,6 +610,237 @@ function showUpdateAvailableNotification() {
     }, 10000);
 }
 
+// Local Storage Functions
+function saveUserPreferences(userData) {
+    try {
+        localStorage.setItem('pmInternshipPreferences', JSON.stringify({
+            ...userData,
+            timestamp: Date.now()
+        }));
+    } catch (error) {
+        console.warn('Could not save preferences to localStorage:', error);
+    }
+}
+
+function loadSavedPreferences() {
+    try {
+        const saved = localStorage.getItem('pmInternshipPreferences');
+        if (saved) {
+            const preferences = JSON.parse(saved);
+            
+            // Check if preferences are not too old (7 days)
+            const isRecent = (Date.now() - preferences.timestamp) < 7 * 24 * 60 * 60 * 1000;
+            
+            if (isRecent) {
+                populateFormWithPreferences(preferences);
+                showWelcomeBackMessage(preferences);
+            }
+        }
+    } catch (error) {
+        console.warn('Could not load saved preferences:', error);
+    }
+}
+
+function populateFormWithPreferences(preferences) {
+    // Set education
+    if (preferences.education) {
+        const educationSelect = document.getElementById('education');
+        if (educationSelect) educationSelect.value = preferences.education;
+    }
+    
+    // Set location
+    if (preferences.location) {
+        const locationSelect = document.getElementById('location');
+        if (locationSelect) locationSelect.value = preferences.location;
+    }
+    
+    // Set skills
+    if (preferences.skills) {
+        preferences.skills.forEach(skill => {
+            const checkbox = document.querySelector(`input[name="skills"][value="${skill}"]`);
+            if (checkbox) checkbox.checked = true;
+        });
+    }
+    
+    // Set interests
+    if (preferences.interests) {
+        preferences.interests.forEach(interest => {
+            const checkbox = document.querySelector(`input[name="interests"][value="${interest}"]`);
+            if (checkbox) checkbox.checked = true;
+        });
+    }
+}
+
+function showWelcomeBackMessage(preferences) {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        background: #4f46e5;
+        color: white;
+        padding: 12px 16px;
+        border-radius: 8px;
+        font-size: 14px;
+        z-index: 999;
+        max-width: 300px;
+        display: flex;
+        align-items: center;
+    `;
+    
+    notification.innerHTML = `
+        <span style="margin-right: 8px;">👋</span>
+        <span>Welcome back! We've restored your preferences.</span>
+        <button onclick="this.parentElement.remove()" style="
+            background: transparent;
+            border: none;
+            color: white;
+            margin-left: 8px;
+            cursor: pointer;
+            font-size: 16px;
+        ">×</button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto-remove after 4 seconds
+    setTimeout(() => {
+        if (notification.parentElement) {
+            notification.remove();
+        }
+    }, 4000);
+}
+
+function clearSavedPreferences() {
+    try {
+        localStorage.removeItem('pmInternshipPreferences');
+        showAlert('Your saved preferences have been cleared.');
+    } catch (error) {
+        console.warn('Could not clear preferences:', error);
+    }
+}
+
+// Share functionality
+function shareInternship(internshipId) {
+    const internships = JSON.parse(localStorage.getItem('lastRecommendations') || '[]');
+    const internship = internships.find(i => i.id === internshipId);
+    
+    if (!internship) {
+        showAlert('Internship details not found');
+        return;
+    }
+    
+    const shareText = `🎯 Found a great internship opportunity!
+
+${internship.title} at ${internship.company}
+📍 ${internship.location}
+💰 ${internship.stipend}
+⏰ ${internship.duration}
+
+Apply through PM Internship Scheme portal`;
+    
+    if (navigator.share) {
+        // Use native sharing on mobile
+        navigator.share({
+            title: internship.title,
+            text: shareText,
+            url: window.location.href
+        }).catch(error => {
+            console.log('Error sharing:', error);
+            fallbackShare(shareText);
+        });
+    } else {
+        fallbackShare(shareText);
+    }
+}
+
+function fallbackShare(text) {
+    // Copy to clipboard
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(() => {
+            showAlert('Internship details copied to clipboard! You can now paste and share.');
+        }).catch(() => {
+            showShareDialog(text);
+        });
+    } else {
+        showShareDialog(text);
+    }
+}
+
+function showShareDialog(text) {
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        padding: 20px;
+    `;
+    
+    modal.innerHTML = `
+        <div style="
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 400px;
+            width: 100%;
+        ">
+            <h3 style="margin-bottom: 16px; color: #1f2937;">Share Internship</h3>
+            <textarea readonly style="
+                width: 100%;
+                height: 150px;
+                padding: 12px;
+                border: 2px solid #e5e7eb;
+                border-radius: 8px;
+                font-family: inherit;
+                font-size: 14px;
+                resize: none;
+                margin-bottom: 16px;
+            ">${text}</textarea>
+            <div style="display: flex; gap: 8px;">
+                <button onclick="
+                    this.closest('div').querySelector('textarea').select();
+                    document.execCommand('copy');
+                    this.textContent = 'Copied!';
+                " style="
+                    flex: 1;
+                    background: #4f46e5;
+                    color: white;
+                    border: none;
+                    padding: 12px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                ">Copy Text</button>
+                <button onclick="this.closest('div').remove()" style="
+                    background: #6b7280;
+                    color: white;
+                    border: none;
+                    padding: 12px 20px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                ">Close</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Close on outside click
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+}
+
 // Make functions globally available
 window.showForm = showForm;
 window.applyToInternship = applyToInternship;
+window.shareInternship = shareInternship;
+window.clearSavedPreferences = clearSavedPreferences;

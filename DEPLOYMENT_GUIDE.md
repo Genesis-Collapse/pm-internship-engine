@@ -65,20 +65,29 @@ Or navigate to: `file:///C:/Users/KIIT/projects/pm-internship-recommender/fronte
 
 ## 🌍 Deploying to Production
 
-### Option 1: Vercel (Recommended for this project)
+### **Unified Render Deployment (Current Setup)**
 
-1. **Commit your changes to Git:**
+Your app is configured for **single-URL deployment** on Render:
+
+1. **Commit your changes:**
 ```powershell
 git add .
 git commit -m "Complete integration with mobile PWA features"
-```
-
-2. **Push to GitHub:**
-```powershell
 git push origin main
 ```
 
-3. **Deploy to Vercel:**
+2. **Automatic deployment:**
+Your existing Render service will automatically deploy to:
+**🔗 https://pm-internship-engine.onrender.com**
+
+3. **Complete experience from one URL:**
+   - Frontend: `https://pm-internship-engine.onrender.com/`
+   - API: `https://pm-internship-engine.onrender.com/api/*`
+   - All assets served from same domain
+
+### Alternative: Vercel Deployment
+
+1. **Deploy to Vercel:**
    - Go to https://vercel.com/
    - Import your GitHub repository
    - Vercel will automatically detect the `vercel.json` configuration
@@ -95,7 +104,8 @@ git push origin main
 ### API URL Management
 The frontend automatically detects environment:
 - **Local development:** Uses `http://localhost:5000/api`
-- **Production:** Uses `https://pm-internship-engine.onrender.com/api`
+- **Production:** Uses relative URLs `/api` (same domain as frontend)
+- **Unified deployment:** Both frontend and API served from `https://pm-internship-engine.onrender.com`
 
 ### Environment Variables (Production)
 ```

@@ -38,19 +38,21 @@
                     <!-- Education Level -->
                     <div class="form-group">
                         <label for="education">📚 Your Education Level</label>
+                        <p class="helper-text">Select the highest level of education you have completed</p>
                         <select id="education" name="education" required>
                             <option value="">Choose your level</option>
-                            <option value="10th">10th Pass</option>
-                            <option value="12th">12th Pass</option>
-                            <option value="diploma">Diploma</option>
-                            <option value="undergraduate">Bachelor's Degree</option>
-                            <option value="postgraduate">Master's Degree</option>
+                            <option value="10th">10th Pass (Secondary School)</option>
+                            <option value="12th">12th Pass (Higher Secondary)</option>
+                            <option value="diploma">Diploma (Technical Course)</option>
+                            <option value="undergraduate">Bachelor's Degree (College Graduate)</option>
+                            <option value="postgraduate">Master's Degree (Post Graduate)</option>
                         </select>
                     </div>
 
                     <!-- Skills -->
                     <div class="form-group">
                         <label for="skills">💡 Your Skills (Select all that apply)</label>
+                        <p class="helper-text">Choose the skills you have or are good at. Don't worry if you're a beginner!</p>
                         <div class="skills-grid">
                             <label class="skill-item">
                                 <input type="checkbox" name="skills" value="computer">
@@ -90,6 +92,7 @@
                     <!-- Interests -->
                     <div class="form-group">
                         <label for="interests">🎯 Which sectors interest you?</label>
+                        <p class="helper-text">Select the work areas you find interesting or would like to learn about</p>
                         <div class="interests-grid">
                             <label class="interest-item">
                                 <input type="checkbox" name="interests" value="technology">
@@ -125,6 +128,7 @@
                     <!-- Location -->
                     <div class="form-group">
                         <label for="location">📍 Your Preferred Location</label>
+                        <p class="helper-text">Choose where you would like to work. "Work from Home" means you can work from anywhere!</p>
                         <select id="location" name="location" required>
                             <option value="">Choose location</option>
                             <option value="mumbai">Mumbai</option>
@@ -166,6 +170,11 @@
 
         <footer class="footer">
             <p>🇮🇳 PM Internship Scheme - Empowering India's Youth</p>
+            <div class="footer-links">
+                <button class="footer-link" onclick="clearSavedPreferences()">
+                    🗑️ Clear Saved Data
+                </button>
+            </div>
         </footer>
     </div>
 

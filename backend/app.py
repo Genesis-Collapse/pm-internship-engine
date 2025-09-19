@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory, send_file
 from flask_cors import CORS
 import json
 import os
@@ -7,15 +7,33 @@ from recommendation_engine import RecommendationEngine
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend integration
 
+# Get the absolute path to the project directory
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FRONTEND_DIR = os.path.join(PROJECT_ROOT, 'frontend')
+
 # Initialize recommendation engine
 rec_engine = RecommendationEngine()
 
 @app.route('/', methods=['GET'])
 def home():
+    """Serve frontend or API status based on Accept header"""
+    # If request accepts HTML, serve frontend
+    if 'text/html' in request.headers.get('Accept', ''):
+        try:
+            return send_file(os.path.join(FRONTEND_DIR, 'index.html'))
+        except Exception as e:
+            return jsonify({
+                'error': 'Frontend not found',
+                'message': str(e),
+                'api_status': 'active'
+            }), 200
+    
+    # Otherwise, return API status (for API testing)
     return jsonify({
         "message": "PM Internship Recommender API",
         "version": "1.0.0",
-        "status": "active"
+        "status": "active",
+        "frontend_available": os.path.exists(os.path.join(FRONTEND_DIR, 'index.html'))
     })
 
 @app.route('/api/recommend', methods=['POST'])
@@ -106,6 +124,20 @@ def get_internship_details(internship_id):
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# Static file serving for frontend assets
+@app.route('/<path:filename>')
+def serve_static_files(filename):
+    """Serve static files (CSS, JS, images, etc.)"""
+    # Skip API routes
+    if filename.startswith('api/'):
+        return jsonify({'error': 'API endpoint not found'}), 404
+    
+    try:
+        return send_from_directory(FRONTEND_DIR, filename)
+    except Exception as e:
+        # If file not found, return 404
+        return jsonify({'error': f'File {filename} not found'}), 404
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
