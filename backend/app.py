@@ -14,10 +14,11 @@ FRONTEND_DIR = os.path.join(PROJECT_ROOT, 'frontend')
 # Initialize recommendation engine
 rec_engine = RecommendationEngine()
 
-@app.route('/', methods=['GET'])
-def home():
-    """Serve HTML application"""
-    return get_html_app()
+@app.route('/')
+def index():
+    """Redirect to working app route"""
+    from flask import redirect
+    return redirect('/app', code=302)
 
 # Function to generate HTML app
 def get_html_app():
