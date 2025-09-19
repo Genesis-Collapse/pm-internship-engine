@@ -41,35 +41,140 @@ def home():
             if os.path.exists(html_path):
                 return send_file(html_path)
         
-        # If none found, show diagnostic page
-            # If file not found, create a simple redirect page
-            return '''
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>PM Internship Finder</title>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            </head>
-            <body>
-                <h1>🎯 PM Internship Finder</h1>
-                <p>Loading application...</p>
-                <script>
-                    console.log('Frontend path issue - redirecting...');
-                    // Try to load the main app
-                    fetch('/api/sectors')
-                        .then(response => response.json())
-                        .then(data => {
-                            console.log('API working:', data);
-                            document.body.innerHTML = '<h1>✅ API Working</h1><p>Frontend files not found. Check deployment.</p>';
-                        })
-                        .catch(error => {
-                            console.error('API Error:', error);
-                        });
-                </script>
-            </body>
-            </html>
-            ''', 200, {'Content-Type': 'text/html'}
+        # If none found, serve a basic working version
+        return '''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PM Internship Finder</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+        .container { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        .header { text-align: center; margin-bottom: 30px; }
+        .header h1 { color: #4f46e5; font-size: 2em; margin-bottom: 10px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; font-weight: bold; margin-bottom: 8px; color: #333; }
+        select, input { width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 16px; }
+        .skills-grid, .interests-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 10px; }
+        .skill-item, .interest-item { display: flex; align-items: center; padding: 10px; border: 2px solid #e5e7eb; border-radius: 8px; cursor: pointer; }
+        .skill-item input, .interest-item input { width: auto; margin-right: 8px; }
+        .submit-btn { width: 100%; padding: 15px; background: linear-gradient(135deg, #4f46e5, #7c3aed); color: white; border: none; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+        .results { margin-top: 30px; }
+        .card { background: #f8fafc; padding: 20px; border-radius: 10px; margin-bottom: 15px; border: 2px solid #e5e7eb; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 PM Internship Finder</h1>
+            <p>Find internships that match your skills</p>
+        </div>
+        
+        <form id="internshipForm">
+            <div class="form-group">
+                <label>📚 Your Education Level</label>
+                <select name="education" required>
+                    <option value="">Choose your level</option>
+                    <option value="10th">10th Pass</option>
+                    <option value="12th">12th Pass</option>
+                    <option value="diploma">Diploma</option>
+                    <option value="undergraduate">Bachelor's Degree</option>
+                    <option value="postgraduate">Master's Degree</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>💡 Your Skills (Select all that apply)</label>
+                <div class="skills-grid">
+                    <label class="skill-item"><input type="checkbox" name="skills" value="computer"> 💻 Computer Skills</label>
+                    <label class="skill-item"><input type="checkbox" name="skills" value="communication"> 🗣️ Communication</label>
+                    <label class="skill-item"><input type="checkbox" name="skills" value="design"> 🎨 Design</label>
+                    <label class="skill-item"><input type="checkbox" name="skills" value="accounting"> 📊 Accounting</label>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>🎯 Which sectors interest you?</label>
+                <div class="interests-grid">
+                    <label class="interest-item"><input type="checkbox" name="interests" value="technology"> 💻 Technology</label>
+                    <label class="interest-item"><input type="checkbox" name="interests" value="healthcare"> 🏥 Healthcare</label>
+                    <label class="interest-item"><input type="checkbox" name="interests" value="education"> 📚 Education</label>
+                    <label class="interest-item"><input type="checkbox" name="interests" value="finance"> 💰 Finance</label>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>📍 Your Preferred Location</label>
+                <select name="location" required>
+                    <option value="">Choose location</option>
+                    <option value="mumbai">Mumbai</option>
+                    <option value="delhi">Delhi</option>
+                    <option value="bangalore">Bangalore</option>
+                    <option value="chennai">Chennai</option>
+                    <option value="remote">Work from Home</option>
+                </select>
+            </div>
+            
+            <button type="submit" class="submit-btn">🔍 Find My Internships</button>
+        </form>
+        
+        <div id="results" class="results hidden"></div>
+    </div>
+    
+    <script>
+        document.getElementById('internshipForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const skills = Array.from(formData.getAll('skills'));
+            const interests = Array.from(formData.getAll('interests'));
+            
+            const candidateData = {
+                education: formData.get('education'),
+                skills: skills,
+                interests: interests,
+                location: formData.get('location')
+            };
+            
+            try {
+                const response = await fetch('/api/recommend', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(candidateData)
+                });
+                
+                const data = await response.json();
+                const resultsDiv = document.getElementById('results');
+                
+                if (data.success && data.recommendations.length > 0) {
+                    const html = data.recommendations.map(rec => `
+                        <div class="card">
+                            <h3>${rec.title}</h3>
+                            <p><strong>${rec.company}</strong></p>
+                            <p>📍 ${rec.location} | ⏰ ${rec.duration} | 💰 ${rec.stipend}</p>
+                            <p>${rec.description}</p>
+                            <p style="background: #ecfdf5; padding: 10px; border-radius: 5px;">✨ ${rec.match_reason}</p>
+                        </div>
+                    `).join('');
+                    
+                    resultsDiv.innerHTML = '<h2>✨ Perfect Matches for You</h2>' + html;
+                    resultsDiv.classList.remove('hidden');
+                } else {
+                    resultsDiv.innerHTML = '<h2>No matches found</h2><p>Try adjusting your preferences.</p>';
+                    resultsDiv.classList.remove('hidden');
+                }
+            } catch (error) {
+                document.getElementById('results').innerHTML = '<h2>Error</h2><p>Could not load recommendations. Please try again.</p>';
+                document.getElementById('results').classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
+        ''', 200, {'Content-Type': 'text/html; charset=utf-8'}
     except Exception as e:
         return jsonify({
             'error': 'Could not serve frontend',
@@ -175,25 +280,36 @@ def get_internship_details(internship_id):
 @app.route('/debug')
 def debug_files():
     """Debug route to check file system structure"""
-    debug_info = {
-        'current_dir': os.getcwd(),
-        'project_root': PROJECT_ROOT,
-        'frontend_dir': FRONTEND_DIR,
-        'frontend_exists': os.path.exists(FRONTEND_DIR)
-    }
-    
-    if os.path.exists(FRONTEND_DIR):
-        debug_info['frontend_files'] = os.listdir(FRONTEND_DIR)
-        debug_info['index_html_exists'] = os.path.exists(os.path.join(FRONTEND_DIR, 'index.html'))
-    
-    # Also check current directory
-    debug_info['current_dir_files'] = os.listdir('.')
-    
-    # Check if frontend is in current directory
-    if os.path.exists('./frontend'):
-        debug_info['local_frontend_files'] = os.listdir('./frontend')
-    
-    return jsonify(debug_info)
+    try:
+        debug_info = {
+            'current_dir': os.getcwd(),
+            'project_root': PROJECT_ROOT,
+            'frontend_dir': FRONTEND_DIR,
+            'frontend_exists': os.path.exists(FRONTEND_DIR)
+        }
+        
+        try:
+            debug_info['current_dir_files'] = os.listdir('.')
+        except Exception as e:
+            debug_info['current_dir_error'] = str(e)
+        
+        if os.path.exists(FRONTEND_DIR):
+            try:
+                debug_info['frontend_files'] = os.listdir(FRONTEND_DIR)
+                debug_info['index_html_exists'] = os.path.exists(os.path.join(FRONTEND_DIR, 'index.html'))
+            except Exception as e:
+                debug_info['frontend_error'] = str(e)
+        
+        # Check if frontend is in current directory
+        if os.path.exists('./frontend'):
+            try:
+                debug_info['local_frontend_files'] = os.listdir('./frontend')
+            except Exception as e:
+                debug_info['local_frontend_error'] = str(e)
+        
+        return jsonify(debug_info)
+    except Exception as e:
+        return jsonify({'error': 'Debug route failed', 'message': str(e)})
 
 # Static file serving for frontend assets
 @app.route('/<path:filename>')
