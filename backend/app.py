@@ -16,9 +16,15 @@ rec_engine = RecommendationEngine()
 
 @app.route('/')
 def index():
-    """Redirect to working app route"""
-    from flask import redirect
-    return redirect('/app', code=302)
+    """Serve static HTML file from root"""
+    import os
+    root_html = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'index.html')
+    if os.path.exists(root_html):
+        return send_file(root_html)
+    else:
+        # Fallback to app route
+        from flask import redirect
+        return redirect('/app', code=302)
 
 # Function to generate HTML app
 def get_html_app():
