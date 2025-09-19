@@ -308,9 +308,13 @@ def debug_files():
 @app.route('/<path:filename>')
 def serve_static_files(filename):
     """Serve static files (CSS, JS, images, etc.)"""
-    # Skip API routes
-    if filename.startswith('api/'):
-        return jsonify({'error': 'API endpoint not found'}), 404
+    # Skip API routes and app route
+    if filename.startswith('api/') or filename == 'app':
+        return jsonify({'error': 'Endpoint not found'}), 404
+    
+    # Only serve actual files with extensions
+    if '.' not in filename:
+        return jsonify({'error': 'File not found'}), 404
     
     try:
         # Try FRONTEND_DIR first, then current directory
@@ -319,12 +323,11 @@ def serve_static_files(filename):
         elif os.path.exists(os.path.join('./frontend', filename)):
             return send_from_directory('./frontend', filename)
         else:
-            raise FileNotFoundError(f'File {filename} not found in any location')
+            raise FileNotFoundError(f'File {filename} not found')
     except Exception as e:
         # If file not found, return 404
         return jsonify({
             'error': f'File {filename} not found',
-            'searched_paths': [FRONTEND_DIR, './frontend'],
             'message': str(e)
         }), 404
 
