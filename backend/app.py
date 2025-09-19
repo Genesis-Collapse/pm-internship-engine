@@ -304,32 +304,45 @@ def debug_files():
     except Exception as e:
         return jsonify({'error': 'Debug route failed', 'message': str(e)})
 
-# Static file serving for frontend assets
-@app.route('/<path:filename>')
-def serve_static_files(filename):
-    """Serve static files (CSS, JS, images, etc.)"""
-    # Skip API routes and app route
-    if filename.startswith('api/') or filename == 'app':
-        return jsonify({'error': 'Endpoint not found'}), 404
-    
-    # Only serve actual files with extensions
-    if '.' not in filename:
-        return jsonify({'error': 'File not found'}), 404
-    
+# Specific static file routes (no catch-all to avoid conflicts)
+@app.route('/styles.css')
+def serve_css():
+    """Serve CSS file"""
     try:
-        # Try FRONTEND_DIR first, then current directory
-        if os.path.exists(os.path.join(FRONTEND_DIR, filename)):
-            return send_from_directory(FRONTEND_DIR, filename)
-        elif os.path.exists(os.path.join('./frontend', filename)):
-            return send_from_directory('./frontend', filename)
+        if os.path.exists(os.path.join(FRONTEND_DIR, 'styles.css')):
+            return send_from_directory(FRONTEND_DIR, 'styles.css')
+        elif os.path.exists('./frontend/styles.css'):
+            return send_from_directory('./frontend', 'styles.css')
         else:
-            raise FileNotFoundError(f'File {filename} not found')
+            return jsonify({'error': 'CSS file not found'}), 404
     except Exception as e:
-        # If file not found, return 404
-        return jsonify({
-            'error': f'File {filename} not found',
-            'message': str(e)
-        }), 404
+        return jsonify({'error': str(e)}), 404
+
+@app.route('/script.js')
+def serve_js():
+    """Serve JavaScript file"""
+    try:
+        if os.path.exists(os.path.join(FRONTEND_DIR, 'script.js')):
+            return send_from_directory(FRONTEND_DIR, 'script.js')
+        elif os.path.exists('./frontend/script.js'):
+            return send_from_directory('./frontend', 'script.js')
+        else:
+            return jsonify({'error': 'JS file not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 404
+
+@app.route('/manifest.json')
+def serve_manifest():
+    """Serve PWA manifest"""
+    try:
+        if os.path.exists(os.path.join(FRONTEND_DIR, 'manifest.json')):
+            return send_from_directory(FRONTEND_DIR, 'manifest.json')
+        elif os.path.exists('./frontend/manifest.json'):
+            return send_from_directory('./frontend', 'manifest.json')
+        else:
+            return jsonify({'error': 'Manifest not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 404
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
